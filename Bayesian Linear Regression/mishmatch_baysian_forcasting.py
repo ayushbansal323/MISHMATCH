@@ -8,7 +8,13 @@ Original file is located at
 """
 
 !pip install pymc3
-!pip install arviz
+
+"""# Bayesian Linear Regression
+
+## Exploratory Data Analysis
+
+Kindly note that **Print_Impressions.Ads40** column is changed to **Print_Impressions_Ads40** and **Print_Working_Cost.Ads50** to **Print_Working_Cost_Ads50**
+"""
 
 import pymc3 as pm
 import pandas as pd
@@ -16,6 +22,7 @@ df = pd.read_csv('Training.csv')
 
 df.head()
 
+# This is for coverting data into period
 # df.columns
 # dfs =  pd.DataFrame(columns=df.columns)
 # combine={}
@@ -41,11 +48,25 @@ df.head()
 # df=dfs
 # df.head()
 
+"""### Distribution of Features
+
+It is userful to find Major Driver of Sales.
+
+We have analysed the distribution of each of the feature.
+
+Performing log transformation to reduce the scale and to distribute the data this will help in increasing the accuracy
+"""
+
 import matplotlib.pyplot as plt
 import numpy as np
 
-#for i in df:
-#    df[i] = np.log(df[i]) 
+for i in df:
+    df[i] = np.log(df[i])
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+
 for i in df:
   plt.hist(df[i], bins = 14)
   plt.xlabel(i)
@@ -53,9 +74,14 @@ for i in df:
   plt.title('Distribution of '+i)
   plt.show()
 
+"""## Corelation
+
+Finding the correlation between every feature with respect to EQ
+"""
+
 df.corr()['EQ'].sort_values()
 
-# Drop the school and the grades from features
+# Drop the features which have low correlation and are not distributed properly
 df = df.drop(columns=['Competitor1_RPI',
                       'Competitor2_RPI',
                       'Competitor3_RPI',
@@ -77,7 +103,7 @@ X_train, X_test, y_train, y_test = train_test_split(df, labels,
                                                    test_size = 0.005,
                                                     random_state=42)
 
-# Formula for Bayesian Linear Regression (follows R formula syntax
+# Formula for Bayesian Linear Regression (follows R formula syntax)
 formula = 'EQ ~ ' + ' + '.join(['%s' % variable for variable in X_train.columns[1:]])
 formula
 
@@ -100,9 +126,6 @@ import pickle
 filename = 'finalized_model.sav'
 pickle.dump(normal_model, open(filename, 'wb'))
 
-#!pip install arviz
-#pm.plot_posterior(normal_trace)
-
 pm.summary(normal_trace)
 
 
@@ -120,7 +143,7 @@ for variable in normal_trace.varnames:
 
 ' '.join(model_formula.split(' ')[:-1])
 
-# Evalute the MCMC trace and compare to ml models
+# Evalute the MCMC trace
 import matplotlib.pyplot as plt
 def evaluate_trace(trace, Xtest, ytest):
     
@@ -131,38 +154,34 @@ def evaluate_trace(trace, Xtest, ytest):
         
     # Results into a dataframe
     var_weights = pd.DataFrame(var_dict)
-    #print(var_weights)
+
     # Means for all the weights
     var_means = var_weights.mean(axis=0)
-    #print(type(var_means))
+
     # Create an intercept column
     Xtest['Intercept'] = 1
-    #print(Xtest.head())
+
     # Align names of the test observations and means
     names = Xtest.columns[1:]
     Xtest = Xtest.ix[:, names]
-    #print(names)
+
     var_means = var_means[names]
-    #print(var_means)
-    #print(names)
+
     # Calculate estimate for each test observation using the average weights
     results = pd.DataFrame(index = Xtest.index, columns = ['EQ'],dtype=np.float32)
-    #print(results.head())
     
-    #print(Xtest)
     for row in Xtest.iterrows():
         results.ix[row[0], 'EQ'] = np.dot(np.array(var_means), np.array(row[1]))
 
     
     # Metrics 
     actual = np.array(ytest)
-    #print(actual)
-    #print(results['EQ'])
+
     errors = np.exp(results['EQ']) - np.exp(actual)
     mae = np.mean(abs(errors))
     rmse = np.sqrt(np.mean(errors ** 2))
-    mape = np.mean(np.abs((np.exp(results['EQ']) - np.exp(actual)) /np.exp(actual))) * 100 
-    #print(np.exp(results['EQ']).head())
+    mape = np.mean(np.abs((np.exp(results['EQ']) - np.exp(actual)) /np.exp(actual))) * 100
+    
     print('Model  MAE: {:.4f}\nModel RMSE: {:.4f} \nModel MAPE: {:.4f}'.format(mae, rmse, mape))
     print()
     
@@ -175,7 +194,8 @@ def evaluate_trace(trace, Xtest, ytest):
 
 all_model_results = evaluate_trace(normal_trace, X_test, y_test)
 
-# Naive baseline is the median
+# Naive baseline is the median 
+# This provides the base values of MAE and RMSE
 median_pred = X_train['EQ'].median()
 median_preds = [median_pred for _ in range(len(X_test))]
 true = X_test['EQ']
@@ -184,13 +204,14 @@ mb_mae, mb_rmse = evaluate_predictions(np.exp(median_preds), np.exp(true))
 print('Median Baseline  MAE: {:.4f}'.format(mb_mae))
 print('Median Baseline RMSE: {:.4f}'.format(mb_rmse))
 
+#Put Your Test Data Here
 import pymc3 as pm
 import pandas as pd
 test = pd.read_csv('Test.csv')
 
 test.head()
 
-# Drop the school and the grades from features
+# Drop the features which have low correlation and are not distributed properly
 test = test.drop(columns=['Competitor1_RPI',
                       'Competitor2_RPI',
                       'Competitor3_RPI',

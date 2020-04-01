@@ -10,10 +10,19 @@ Original file is located at
 !pip install pymc3
 !pip install arviz
 
+"""# Bayesian Linear Regression
+
+## Exploratory Data Analysis
+
+Kindly note that **Print_Impressions.Ads40** column is changed to **Print_Impressions_Ads40** and **Print_Working_Cost.Ads50** to **Print_Working_Cost_Ads50**
+"""
+
 import pymc3 as pm
 import pandas as pd
 df = pd.read_csv('TrainingData.csv')
 df = df.drop(columns=['Period'])
+
+#filling the missing values with the mean
 for col in df.columns:
   if col != 'Period':
     df[col] = df[col].fillna((df[col].mean()))
@@ -31,9 +40,14 @@ for i in df:
   plt.title('Distribution of '+i)
   plt.show()
 
+"""## Corelation
+
+Finding the correlation between every feature with respect to EQ
+"""
+
 df.corr()['EQ'].sort_values()
 
-# Drop the school and the grades from features
+# Drop the features which have low correlation and are not distributed properly
 df = df.drop(columns=['Competitor1_RPI',
                       'Competitor2_RPI',
                       'Competitor3_RPI',
@@ -43,7 +57,7 @@ df = df.drop(columns=['Competitor1_RPI',
 from sklearn.model_selection import train_test_split
 labels = df['EQ']
 # df is features and labels are the targets 
-# Split by putting 25% in the testing set
+# Split by putting 0.5% in the testing set
 X_train, X_test, y_train, y_test = train_test_split(df, labels, 
                                                    test_size = 0.005,
                                                     random_state=42)
@@ -70,9 +84,6 @@ import pickle
 # save the model to disk
 filename = 'finalized_model.sav'
 pickle.dump(normal_model, open(filename, 'wb'))
-
-#!pip install arviz
-#pm.plot_posterior(normal_trace)
 
 pm.summary(normal_trace)
 
@@ -102,38 +113,32 @@ def evaluate_trace(trace, Xtest, ytest):
         
     # Results into a dataframe
     var_weights = pd.DataFrame(var_dict)
-    #print(var_weights)
+    
     # Means for all the weights
     var_means = var_weights.mean(axis=0)
-    #print(type(var_means))
+    
     # Create an intercept column
     Xtest['Intercept'] = 1
-    #print(Xtest.head())
+    
     # Align names of the test observations and means
     names = Xtest.columns[1:]
     Xtest = Xtest.loc[:, names]
-    #print(names)
+    
     var_means = var_means[names]
-    #print(var_means)
-    #print(names)
+    
     # Calculate estimate for each test observation using the average weights
     results = pd.DataFrame(index = Xtest.index, columns = ['EQ'],dtype=np.float32)
-    #print(results.head())
     
-    #print(Xtest)
     for row in Xtest.iterrows():
         results.loc[row[0], 'EQ'] = np.dot(np.array(var_means), np.array(row[1]))
 
     
     # Metrics 
     actual = np.array(ytest)
-    #print(actual)
-    #print(results['EQ'])
     errors = np.exp(results['EQ']) - np.exp(actual)
     mae = np.mean(abs(errors))
     rmse = np.sqrt(np.mean(errors ** 2))
     mape = np.mean(np.abs((np.exp(results['EQ']) - np.exp(actual)) /np.exp(actual))) * 100 
-    #print(np.exp(results['EQ']).head())
     print('Model  MAE: {:.4f}\nModel RMSE: {:.4f} \nModel MAPE: {:.4f}'.format(mae, rmse, mape))
     print()
     
@@ -164,7 +169,7 @@ for col in test.columns:
     test[col] = test[col].fillna((test[col].mean()))
 test.head()
 
-# Drop the school and the grades from features
+# Drop the features which have low correlation and are not distributed properly
 test = test.drop(columns=['Competitor1_RPI',
                       'Competitor2_RPI',
                       'Competitor3_RPI',
